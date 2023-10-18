@@ -1,0 +1,2 @@
+# Ignore all simulink compiled files in all subfolders
+**/*.slxc

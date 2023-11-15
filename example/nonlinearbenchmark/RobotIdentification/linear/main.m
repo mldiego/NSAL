@@ -1,86 +1,91 @@
-%% Learn a hybrid automata model with linear ODEs for each location
+%% Generate a hybrid automata from trace data
 
-%% 1) Specify parameters (to be defined by user)
-Time = false;
-Ts  = 0.05;
-sigma = 0.003;  
-winlen = 10;
-num_var = 2;
-num_ud = 0;
+% work in progress.....
+
+% Initialize parameters
+% global sigma num_var num_ud Ts winlen Time 
+Time = false;  % ???
+Ts  = 0.10;    % time sample (obtained from data)
+sigma = 0.003; % this is for error tolerance
+winlen = 10;   % related to segment data, not sure exactly what this is...
+num_var = 6;   % number of state variables
+num_ud = 6;    % number of inputs?
+
+% initialize variables for indentifying trace data
 num = 1; x = []; ud = []; 
 
-%% Load data
-% Load data, process noise and detect changepoints
-for i = 1:10
-    load(['..', filesep, 'trainingdata' , filesep, 'run', int2str(i), '.mat']);
-    trace_temp = processNoiseData(xout, num_var);
-    trace(num) = trace_temp;
-    x = [x; trace(num).x];
-    ud = [ud; trace(num).ud];
-    num = num+1; 
-end
+%% Preprocess data
 
-%% Divide data into traces and cluster them
+% Load data, process noise and detect changepoints
+load(['..', filesep, 'trainingdata' , filesep, 'forward_identification_without_raw_data.mat']);
+
+% Reshape data
+y_test = y_test';
+y_train = y_train';
+u_test = u_test';
+u_train = u_train';
+
+% Generate raw traces from collected data
+Trace = FnProcessNoiseData(y_train, num_var);
+
+
+%% Divide segments using a clustering method
 
 tic
-trace = clusterSegments(trace, x, ud, sigma, winlen);
+Trace = FnClusterSegs(Trace, x, ud);
 toc
 t1 = toc;
 
-for n=1:length(trace)
-    trace(n).labels_trace = [trace(n).labels_trace;0];
+% Assign a different label for each trace segment
+for n=1:length(Trace)
+    Trace(n).labels_trace = [Trace(n).labels_trace; 0];
 end
 
-%% Estimate a linearODE model for each cluster
+%% Generate dynamics for each trace
 
 tode = tic;
-ode = getAllLinearODEs(trace);
+ode = FnEstODE(Trace);
 tode = toc(tode);
-save('tode.mat','tode');
+save('tode.mat','tode'); % time to learn the dynamics for each trace
 
-%% Find the linear inequalities and transitions for each cluster
 
-% Define parameters
+%% Find linear inequalities and guards for the automata locations
+
 eta = 100000; % number of iterations 
 lambda = 0.05; % tolerance 
 % gamma = 10; %the least number of inliers
 gamma = 3;
-
-% find the linear inequaities
-[trace,label_guard] = getLinearInequalities(trace, eta, lambda, gamma);
-
+[Trace,label_guard] = FnLI(Trace, eta, lambda, gamma);
 t2 = toc;
-% get the prefix tree acceptor for each trace
-pta_trace = getPrefixTreeAcceptor(trace);
-% remove false pta
+pta_trace = FnPTA(Trace);
 pta_trace = pta_filter(pta_trace);
 t3 = toc;
 
-%% Generate hybrid automata formats
 
-% 1) Generate hyst model
-getLinearHyst('automata_learning',label_guard, num_var, ode, pta_trace);
+%% Generate the file containing the hybrid automata
+
+% Generate the SpaceEx model (using hyst)
+FnGenerateHyst('automata_learning',label_guard, num_var, ode, pta_trace);
+
 addpath(['..', filesep, '..', filesep, 'src',filesep,'hyst', filesep, 'src', filesep, 'matlab']);
 
-% 2) Generate Stateflow model (MATLAB/Simulink/StateFlow)
+% Convert to Stateflow
 try
     SpaceExToStateflow('automata_learning.xml');
 catch
-    warning("Conversion to Stateflow failed")
+    warning('Failed to generate the Stateflow model.');
 end
 
-% 3) Generate CORA model (we use this for verification in NNV)
+% Convert from SpaceEx to CORA (what NNV uses as well)
 disp('Converting Hybrid Automaton from SpaceEx to CORA')
 try
     spaceex2cora('automata_learning.xml',0,'automata_learning_sys','ex1_linear',pwd);
 catch
-    warning("Conversion to CORA failed.")
+    warning('Failed to generate the CORA model.');
 end
 
 
 %% Helper Functions
-
-% filter out PTAs
 function pta_trace_new = pta_filter(pta_trace)
     % remove false pta
     label1s = extractfield(pta_trace,'label1');
@@ -107,8 +112,7 @@ function pta_trace_new = pta_filter(pta_trace)
     pta_trace_new = pta_trace;
 end
 
-% remove redundant checkpoints due to noisy data
-function trace = processNoiseData(xout, num_var)
+function trace = FnProcessNoiseData(xout, num_var)
 
     chpoints = [];
     for i = 1:num_var
@@ -126,14 +130,13 @@ function trace = processNoiseData(xout, num_var)
     trace.labels_trace = [];  
 end
 
-% get changepoints based on upper and lower limits on the derivatives
 function indx = changepoint(values)
     diffs = diff(values,2);
     indx = find(diffs<=-0.005|diffs>=0.005)+1;
     indx = union(1,[indx; length(values)]);
+    
 end
 
-% filter changepoints that are too close to each other
 function indx = filterindx(indx)
     n = 1;
     windw = 10; 

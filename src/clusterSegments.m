@@ -1,4 +1,4 @@
-function trace = clusterSegments(trace, x, ud)
+function trace = clusterSegments(trace, x, ud, sigma, winlen)
 
     segIndex = [0,0]; 
     for i=1:length(trace)  
@@ -182,7 +182,7 @@ function indx = searchTracesRecursive(x, ud, chpoints, sigma, winlen)
       
         indx = [indx; -1];
         
-        indxx = searchTracesRecursive(xc,udc,chpc);
+        indxx = searchTracesRecursive(xc,udc,chpc,sigma,winlen);
         indx = [indx; indxx];
          
     else

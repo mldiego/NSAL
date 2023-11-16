@@ -24,7 +24,7 @@ end
 pta_trace_new = get_pta_trace(1, seg_ids, pta_trace_set);
 for n = 2:(length(seg_ids)-1)
     pta_trace2 = get_pta_trace(n, seg_ids, pta_trace_set);
-    pta_trace_new = combine_pta(pta_trace_new, pta_trace2, pta_trace_set);
+    pta_trace_new = combine_pta(pta_trace_new, pta_trace2);
 end
 pta_trace = modify_pta(pta_trace_new);
 end
@@ -68,8 +68,7 @@ function pta_trace_new = combine_pta(pta_trace1, pta_trace2)
         end
     end
     
-     pta_trace_new = mergeTrans(pta_trace1, pta_trace2);
-    
+    pta_trace_new = mergeTrans(pta_trace1, pta_trace2);
     
 end
 

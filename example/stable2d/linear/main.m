@@ -1,7 +1,7 @@
-clc
-clear
+%% Learn a hybrid automata model with linear ODEs for each location
 
-global sigma num_var num_ud Ts winlen Time 
+%% 1) Specify parameters (to be defined by user)
+
 Time = false;
 Ts  = 0.01;
 sigma = 0.006;  
@@ -10,111 +10,74 @@ num_var = 2;
 num_ud = 0;
 num = 1; x = []; ud = []; 
 
+%% Load data
 % Load data, process noise and detect changepoints
 for i = 1:10
     load(['..', filesep, 'trainingdata' , filesep, 'run', int2str(i), '.mat']);
-    trace_temp = FnProcessNoiseData(xout, num_var);
+    trace_temp = processNoiseData(xout, num_var);
     trace(num) = trace_temp;
     x = [x; trace(num).x];
     ud = [ud; trace(num).ud];
     num = num+1; 
 end
 
-%%
+%% Divide data into traces and cluster them
 
 tic
-trace = FnClusterSegs(trace, x, ud);
+trace = clusterSegments(trace, x, ud, sigma, winlen);
 toc
 t1 = toc;
 
-%%
 for n=1:length(trace)
     trace(n).labels_trace = [trace(n).labels_trace;0];
 end
 
+%% Estimate a linearODE model for each cluster
+
 tode = tic;
-ode = FnEstODE(trace);
+ode = getAllLinearODEs(trace, Ts, num_var, num_ud);
 tode = toc(tode);
 save('tode.mat','tode');
 
-%% 
+%% Find the linear inequalities and transitions for each cluster
+
+% Define parameters
 eta = 100000; % number of iterations 
 lambda = 0.05; % tolerance 
 % gamma = 10; %the least number of inliers
 gamma = 3;
-[trace,label_guard] = FnLI(trace, eta, lambda, gamma);
+
+% find the linear inequaities
+[trace,label_guard] = getLinearInequalities(trace, eta, lambda, gamma, num_var, Time);
+
 t2 = toc;
-pta_trace = FnPTA(trace);
-pta_trace = pta_filter(pta_trace);
+% get the prefix tree acceptor for each trace
+pta_trace = getPrefixTreeAcceptor(trace);
+% remove false pta
+pta_trace = filterPTA(pta_trace);
 t3 = toc;
-%%
-FnGenerateHyst('automata_learning',label_guard, num_var, ode, pta_trace);
 
-addpath(['..', filesep, '..', filesep, 'src',filesep,'hyst', filesep, 'src', filesep, 'matlab']);
-try
-    SpaceExToStateflow('automata_learning.xml');
-catch
-end
 
-disp('Converting Hybrid Automaton from SpaceEx to CORA')
-try
-    spaceex2cora('automata_learning.xml',0,'automata_learning_sys','stable2d_linear',pwd);
-catch
-end
+%% Generate hybrid automata formats
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function pta_trace_new = pta_filter(pta_trace)
-    % remove false pta
-    label1s = extractfield(pta_trace,'label1');
-    label2s = extractfield(pta_trace,'label2');
-    id1s = extractfield(pta_trace,'id1');
-    id2s = extractfield(pta_trace,'id2');
-    nn = 1;
-    while true
-        if nn>length(pta_trace)
-            break;
-        end
-        %flag1 = pta_trace(nn).times<=2;
-        flag2 = ~ismember(pta_trace(nn).label1, label2s);
-        flag3 = ~ismember(pta_trace(nn).label2, label1s);
-        flag4 = ~ismember(pta_trace(nn).id1, id1s);
-        flag5 = ~ismember(pta_trace(nn).id2, id2s);
-        
-        if (~ismember(pta_trace(nn).id1, id2s)) && (pta_trace(nn).id1~=1) || ~ismember(pta_trace(nn).id2, id1s)
-            pta_trace(nn) = [];
-        else
-            nn = nn+1;
-        end
-    end
-    pta_trace_new = pta_trace;
-end
+% 1) Generate hyst model
+getLinearHyst('automata_learning',label_guard, num_var, ode, pta_trace);
+% addpath(genpath(['./..', filesep, '..', filesep, '..', filesep, 'src',filesep,'hyst', filesep, 'src', filesep, 'matlab']));
 
-function trace = FnProcessNoiseData(xout, num_var)
+% 2) Generate Stateflow model (MATLAB/Simulink/StateFlow)
+% try % this is crashing matlab...
+%     SpaceExToStateflow('automata_learning.xml');
+% catch
+%     warning("Conversion to Stateflow failed")
+% end
 
-    chpoints = [];
-    for i = 1:num_var
-        chpoints = union(chpoints, changepoint(xout(:,i)));
-    end
-    
-    % remove redundant chpoints
-    chpoints = filterindx(chpoints);
-    xout_reduced= xout(:, 1:num_var);
-
-    trace.x = xout_reduced;
-    trace.chpoints = chpoints;
-    trace.ud = [];
-    trace.labels_num = []; 
-    trace.labels_trace = [];  
-end
-
-function indx = changepoint(values)
-    diffs = diff(values,2);
-    indx = find(diffs<=-0.005|diffs>=0.005)+1;
-    indx = union(1,[indx; length(values)]);
-    
-end
-
-function indx = filterindx(indx)
+% 3) Generate CORA model (we use this for verification in NNV)
+% disp('Converting Hybrid Automaton from SpaceEx to CORA')
+% try % This is throwing an error when converting invariants
+%     spaceex2cora('automata_learning.xml',0,'automata_learning_sys','stable2d_linear',pwd);
+% catch
+%     warning("Conversion to CORA failed.")
+% end
     n = 1;
     windw = 10; 
     while true

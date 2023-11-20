@@ -1,17 +1,16 @@
-function learnHybridAutomata(data, odeType, Ts, sigma, winlen)
+function timeVars = learnHybridAutomata(data, odeType, Ts, time, sigma, winlen, eta, lambda, gamma)
 
 % Input Parameters
 % odeType = {linear, nonlinear, neural};
 % data related
 % variable
-% Time = true/false;
+% time = true/false;
 % Ts  = 0.05;
 % num_var = 2; number of state variables in the data
 % num_ud = 0; number of inputs
 % sigma = 0.003; % error tolerance
 % winlen = 10; % window length for data vectors (shoul we fix it to 10?)
 
-%
 % Initialize variables
 num = 1; x = []; ud = []; 
 
@@ -33,10 +32,10 @@ num = 1; x = []; ud = [];
 
 N = length(data); % must be a cell array containing data with in a struct form
 % get data size
-xSample = data{1}.x;
+xSample = data(1).x;
 num_var = size(xSample,2); % get number of variables
 % get input size
-uSample = data{1}.u;
+uSample = data(1).u;
 if isempty(uSample)
     num_ud = 0;
 else
@@ -45,7 +44,7 @@ end
 
 % process every data trace collected
 for i = 1:N
-    xout = data{i}.x; % state data
+    xout = data(i).x; % state data
     trace_temp = processNoiseData(xout, num_var);
     trace(num) = trace_temp;
     x = [x; trace(num).x];
@@ -87,7 +86,7 @@ tode = toc(tode);
 %% 4) Find the linear inequalities and transitions for each cluster
 
 % find the linear inequaities
-[trace,label_guard] = getLinearInequalities(trace, eta, lambda, gamma, num_var, Time);
+[trace,label_guard] = getLinearInequalities(trace, eta, lambda, gamma, num_var, time);
 
 t2 = toc;
 % get the prefix tree acceptor for each trace
@@ -95,6 +94,8 @@ pta_trace = getPrefixTreeAcceptor(trace);
 % remove false pta
 pta_trace = filterPTA(pta_trace);
 t3 = toc;
+
+timeVars = [t1;tode;t2;t3];
 
 
 %% 5) Generate hybrid automata formats

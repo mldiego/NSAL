@@ -1,4 +1,4 @@
-function ode = getAllNeuralODEs(trace, num_var)
+function ode = getAllNeuralODEs(trace, num_var,  Ts, nL, hS, act_function)
 len_labels = length(trace(1).labels_num);
 for label = 1:len_labels
     x_seg_plus = {};
@@ -24,6 +24,6 @@ for label = 1:len_labels
         x_seg = x_seg_plus{k};
         trajs(:,k,:) = x_seg(:,1:min_length);
     end
-    dlnet = FnEst_node_(trajs);
+    dlnet = estimateNeuralODE(trajs, Ts, nL, hS, act_function);
     ode{label} = dlnet;
 end

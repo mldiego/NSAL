@@ -1,0 +1,50 @@
+%% Generate neuralODE HAs for all examples
+
+
+%%
+
+disp('Generating HAs for Example 1');
+
+cd example1;
+cd neuralode;
+
+run learn.m;
+
+cd ..;
+cd ..;
+
+%%
+
+disp('Generating HAs for Example 2');
+
+cd example2;
+cd neuralode;
+
+run learn.m;
+
+cd ..;
+cd ..;
+
+%%
+
+disp('Generating HAs for 2-dimensional stable system');
+cd stable2d;
+cd neuralode;
+
+run learn.m;
+
+cd ..;
+cd ..;
+
+%%
+
+disp('Generating HAs for 3-dimensional stable system');
+cd stable3d;
+cd neuraloder;
+
+run learn.m;
+
+cd ..;
+cd ..;
+
+disp('All linear experiments are conducted');

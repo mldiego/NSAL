@@ -1,4 +1,4 @@
-function ode = FnEstNL(trace, num_var, Ts, PolyDegree)
+function ode = getAllNonlinearODEs(trace, num_var, Ts, PolyDegree)
 
 len_labels = length(trace(1).labels_num);
 for label = 1:len_labels
@@ -20,17 +20,8 @@ for label = 1:len_labels
         end
     end
     % Convert data format to that used in weak sindy
-    % What is the minimum size of an trajectory to consider?
+    % (todo: What is the minimum size of an trajectory to consider?)
     min_length = min(traj_length);
-%     if min_length < 50
-%         idxs = find(traj_length > 50);
-%         min_length = min(traj_length(idxs));
-%         trajs = zeros(length(idxs),num_var,min_length);
-%         for k=1:length(idxs)
-%             x_seg = x_seg_plus{idxs(k)};
-%             trajs(k,:,:) = x_seg(:,1:min_length);
-%         end
-%     else
     trajs = zeros(length(x_seg_plus),num_var,min_length);
     for k=1:length(x_seg_plus)
         x_seg = x_seg_plus{k};

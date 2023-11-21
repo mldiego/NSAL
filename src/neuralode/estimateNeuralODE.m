@@ -1,4 +1,4 @@
-function dlnet = estimateNeuralode(trace, Ts, numLayers, hiddenSsize, act_function)
+function dlnet = estimateNeuralODE(trace, Ts, numLayers, hiddenSsize, act_function)
 
 % Trace data 
 xTrain = trace; %

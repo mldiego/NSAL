@@ -1,4 +1,4 @@
-function getNeuralodeHyst(file_name, label_guard, num_var, ode, pta_trace)
+function getNeuralODEHyst(file_name, label_guard, num_var, ode, pta_trace, act_function, nL)
 
 % import data structures from Hyst
 javaaddpath(['..', filesep, '..', filesep, '..', filesep, 'src',filesep,'hyst', filesep, 'lib', filesep, 'Hyst.jar']);
@@ -29,7 +29,7 @@ for i = 1 : num_var
 end
 
 for i = 1 : length(ode)
-    modesToFlows{i} = dlnetToString(ode(i), varNames);
+    modesToFlows{i} = dlnetToString(ode(i), varNames, act_function, nL);
 end
 
 ode0str = '';
@@ -212,14 +212,14 @@ function [out] = odeMatrixToString(A,varNames)
     out = odeStrConjunction;
 end
 
-function out = dlnetToString(dlnet,varNames)
+function out = dlnetToString(dlnet,varNames,act_function,nL)
     x = [];
     n = length(varNames); % state space dimensionality
     for i = 1 : n
         x = [x; sym(varNames{i})];
     end
     odeStrConjunction = '';
-    tmp = node_to_str(dlnet, x);
+    tmp = node_to_str(dlnet, x, act_function, nL);
     for i = 1 : n
         odeStr = strcat(varNames(i), ' == ', tmp{i});
         if i > 1
@@ -232,8 +232,7 @@ function out = dlnetToString(dlnet,varNames)
     out = odeStrConjunction;
 end
 
-function str_node = node_to_str(node_params, x)
-global act_function nL 
+function str_node = node_to_str(node_params, x, act_function, nL)
     node_params = node_params{1};
     str_node = x;
     for kji=1:nL+1

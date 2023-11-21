@@ -1,4 +1,4 @@
-function timeVars = learnHybridAutomata(data, odeType, Ts, time, sigma, winlen, eta, lambda, gamma)
+function timeVars = learnHybridAutomata(data, odeType, Ts, time, sigma, winlen, eta, lambda, gamma, varargin)
 
 % Input Parameters
 % odeType = {linear, nonlinear, neural};
@@ -10,9 +10,13 @@ function timeVars = learnHybridAutomata(data, odeType, Ts, time, sigma, winlen, 
 % num_ud = 0; number of inputs
 % sigma = 0.003; % error tolerance
 % winlen = 10; % window length for data vectors (shoul we fix it to 10?)
-
-% Initialize variables
-num = 1; x = []; ud = []; 
+% varargin
+% - Nonlinear
+%     - PolyDegree (max polynomial degree to define dynamics)
+% - Neuralode
+%     - act_function = 'tanh'; % activation function for hidden layers
+%     - nL = 1;  % number of hidden layers
+%     - hS = 20; % number of neurons for each hidden layer
 
 % If undefined, these are the default values
 % Define parameters for linear inequality estimation
@@ -22,15 +26,22 @@ num = 1; x = []; ud = [];
 
 
 % Parameters needed for nonlinear
-
+% PolyDegree = 2;
 
 % Parameters needed for neuralodes
+% act_function = 'tanh'; % activation function for hidden layers
+% nL = 1;  % number of hidden layers
+% hS = 20; % number of neurons for each hidden layer
 
 
 
 %% 1) Load data, process noise and detect changepoints
 
-N = length(data); % must be a cell array containing data with in a struct form
+
+% Initialize data variables
+num = 1; x = []; ud = []; 
+N = length(data); % must be a array containing data with in a struct form (fields: x, u)
+
 % get data size
 xSample = data(1).x;
 num_var = size(xSample,2); % get number of variables
@@ -72,10 +83,14 @@ if strcmp(odeType, 'linear')
     ode = getAllLinearODEs(trace, Ts, num_var, num_ud);
 % Estimate a nonlinearODE model for each cluster
 elseif strcmp(odeType, 'nonlinear')
-    error('Working on it...')
-% % Estimate a neuralODE model for each cluster 
-elseif strcmp(odeType, 'neural')
-    error('Work in progress...')
+    PolyDegree = varargin{1};
+    ode = getAllNonlinearODEs(trace, num_var, Ts, PolyDegree);
+% Estimate a neuralODE model for each cluster 
+elseif strcmp(odeType, 'neuralode')
+    act_function = varargin{1}; % activation function for hidden layers
+    nL = varargin{2};  % number of hidden layers
+    hS = varargin{3}; % number of neurons for each hidden layer
+    ode = getAllNeuralODEs(trace, num_var, Ts, nL, hS, act_function);
 else
     error('Wrong dynamics specified.')
 end
@@ -103,9 +118,9 @@ timeVars = [t1;tode;t2;t3];
 if strcmp(odeType, 'linear')
     getLinearHyst('automata_learning',label_guard, num_var, ode, pta_trace);
 elseif strcmp(odeType, 'nonlinear')
-    getNonlinearHyst('automata_learning',label_guard, num_var, ode, pta_trace);
-elseif strcmp(odeType, 'neural')
-    getNeuralODEHyst('automata_learning',label_guard, num_var, ode, pta_trace);
+    getNonlinearHyst('automata_learning',label_guard, num_var, ode, pta_trace, PolyDegree);
+elseif strcmp(odeType, 'neuralode')
+    getNeuralODEHyst('automata_learning',label_guard, num_var, ode, pta_trace, act_function, nL);
 else
     error('Wrong dynamics specified.')
 end
